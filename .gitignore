@@ -1,0 +1,7 @@
+.cache/
+build/
+*.so
+*.pyd
+__pycache__/
+.vscode/
+.pytest_cache/

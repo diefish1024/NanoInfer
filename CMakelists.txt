@@ -1,0 +1,48 @@
+cmake_minimum_required(VERSION 3.20)
+
+project(NanoInfer VERSION 0.1.0 LANGUAGES CXX CUDA)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(Python_FIND_VIRTUALENV FIRST)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES "native")
+endif()
+
+find_package(CUDAToolkit REQUIRED)
+
+find_package(Python COMPONENTS Interpreter Development REQUIRED)
+
+add_subdirectory(3rdparty/pybind11)
+
+include_directories(
+    ${CMAKE_SOURCE_DIR}/src/core
+    ${CMAKE_SOURCE_DIR}/src/kernels/cuda
+    ${CMAKE_SOURCE_DIR}/src/kernels/cpu
+    ${CUDAToolkit_INCLUDE_DIRS}
+)
+
+file(GLOB_RECURSE CORE_SOURCES "src/core/*.cpp")
+file(GLOB_RECURSE CUDA_SOURCES "src/kernels/cuda/*.cu")
+file(GLOB_RECURSE BINDING_SOURCES "src/binding.cpp")
+file(GLOB_RECURSE CPU_SOURCES "src/kernels/cpu/*.cpp")
+
+pybind11_add_module(_nano_infer
+    ${CORE_SOURCES}
+    ${CUDA_SOURCES}
+    ${BINDING_SOURCES}
+    ${CPU_SOURCES}
+)
+
+if(MSVC)
+    add_compile_options(/W4 /arch:AVX2)
+else()
+    add_compile_options(-Wall -Wextra -O3 -fPIC -mavx2 -mfma)
+endif()
+
+set_target_properties(_nano_infer PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/nano_infer/backend)
+
+target_link_libraries(_nano_infer PRIVATE CUDA::cudart CUDA::cublas)
