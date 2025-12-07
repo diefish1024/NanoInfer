@@ -1,7 +1,8 @@
 #include <cpu_kernels.hpp>
 #include <cmath>
+#include <cstring>
 
-void silu_cpu(const Tensor &x, Tensor &out) {
+void silu(const Tensor &x, Tensor &out) {
     int n = x.size;
     for (int i = 0; i < n; ++i) {
         float val = x.data[i];

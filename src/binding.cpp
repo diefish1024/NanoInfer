@@ -61,5 +61,5 @@ PYBIND11_MODULE(_nano_infer, m) {
         
         .def("__repr__", &Tensor::to_string);
 
-        m.def("silu_cpu", &silu_cpu, "SiLU CPU Naive Implementation");
+        m.def("silu", &silu, "SiLU CPU Naive Implementation");
 }
