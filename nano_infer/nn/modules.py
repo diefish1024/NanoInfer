@@ -66,28 +66,3 @@ class Module:
             module.to(device)
             
         return self
-    
-class Linear(Module):
-    def __init__(self, in_features, out_features, bias = True):
-        super().__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-        
-        k = np.sqrt(1.0 / in_features)
-        self.weight = Parameter(np.random.uniform(-k, k, (out_features, in_features)).astype(np.float32))
-
-        if bias:
-            self.bias = Parameter(np.random.uniform(-k, k, (out_features,)).astype(np.float32))
-        else:
-            self.bias = None
-
-    def forward(self, input):
-        return F.linear(input, self.weight, self.bias)
-    
-class RMSNorm(Module):
-    def __init__(self, hidden_size, eps=1e-6):
-        super().__init__()
-        self.weight = Parameter(np.ones(hidden_size, dtype=np.float32))
-
-    def forward(self, x):
-        return F.rms_norm(x, self.weight, self.eps)
