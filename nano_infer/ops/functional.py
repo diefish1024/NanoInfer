@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Optional
 from ..core.tensor import Tensor
-from ..kernels import triton_norm, triton_math, triton_embedding
+from ..kernels import triton_norm, triton_math, triton_embedding, triton_softmax
 from ..backend import _nano_infer
 
 CppTensor = _nano_infer.Tensor
@@ -60,4 +60,16 @@ def embedding(input: Tensor, weight: Tensor) -> Tensor:
     elif input.device == Device.CPU:
         CppTensor.embedding(input.data, weight.data, out.data)
 
+    return out
+
+def softmax(x: Tensor, dim: int = -1) -> Tensor:
+    if dim != -1 and dim != len(x.shape) - 1:
+        raise NotImplementedError("Softmax currently only supports dim=-1")
+    out = Tensor(np.empty(x.shape, dtype=np.float32), device=x.device)
+    
+    if x.device == Device.CUDA:
+        triton_softmax.softmax(x, out)
+    elif x.device == Device.CPU:
+        CppTensor.softmax(x, out)
+    
     return out

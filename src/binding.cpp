@@ -63,4 +63,5 @@ PYBIND11_MODULE(_nano_infer, m) {
 
         m.def("silu", &silu, "SiLU CPU Naive Implementation");
         m.def("embedding", &embedding, "Embedding CPU Naive Implementation");
+        m.def("softmax", &softmax, "Softmax CPU Naive Implementation");
 }

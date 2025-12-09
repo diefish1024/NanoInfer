@@ -1,3 +1,4 @@
+#include "tensor.hpp"
 #include <cpu_kernels.hpp>
 #include <cmath>
 #include <cstring>
@@ -24,5 +25,34 @@ void embedding(const Tensor& idx, const Tensor& w, Tensor& out) {
         float* src = w_p + id_num * hidden_dim;
         float* dst = out_p + i * hidden_dim;
         std::memcpy(dst, src, hidden_dim * sizeof(float));
+    }
+}
+
+void softmax(const Tensor& x, Tensor& out) {
+    int n_cols = x.shape.back();
+    int n_rows = x.size / n_cols;
+    
+    const float* input_ptr = x.data;
+    float* output_ptr = out.data;
+
+    for (int i = 0; i < n_rows; ++i) {
+        const float* row_in = input_ptr + i * n_cols;
+        float* row_out = output_ptr + i * n_cols;
+
+        float max_val = -std::numeric_limits<float>::infinity();
+        for (int j = 0; j < n_cols; ++j) {
+            if (row_in[j] > max_val) max_val = row_in[j];
+        }
+
+        float sum = 0.0f;
+        for (int j = 0; j < n_cols; ++j) {
+            float exp_val = std::exp(row_in[j] - max_val);
+            row_out[j] = exp_val;
+            sum += exp_val;
+        }
+
+        for (int j = 0; j < n_cols; ++j) {
+            row_out[j] /= sum;
+        }
     }
 }
