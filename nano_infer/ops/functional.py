@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Optional
 from ..core.tensor import Tensor
-from ..kernels import triton_norm, triton_math
+from ..kernels import triton_norm, triton_math, triton_embedding
 from ..backend import _nano_infer
 
 CppTensor = _nano_infer.Tensor
@@ -48,3 +48,16 @@ def linear(input: Tensor, weight: Tensor, bias: Optional[Tensor]=None):
         output = output + bias
         
     return output
+
+def embedding(input: Tensor, weight: Tensor) -> Tensor:
+    batch_size, seq_len = input.shape
+    vocab_size, hidden_dim = weight.shape
+    out_shape = list(input.shape) + [hidden_dim]
+    out = Tensor(np.empty(out_shape, dtype=np.float32), device=input.device)
+
+    if input.device == Device.CUDA:
+        triton_embedding.embedding(input, weight, out)
+    elif input.device == Device.CPU:
+        CppTensor.embedding(input.data, weight.data, out.data)
+
+    return out

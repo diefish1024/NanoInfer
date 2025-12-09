@@ -62,4 +62,5 @@ PYBIND11_MODULE(_nano_infer, m) {
         .def("__repr__", &Tensor::to_string);
 
         m.def("silu", &silu, "SiLU CPU Naive Implementation");
+        m.def("embedding", &embedding, "Embedding CPU Naive Implementation");
 }
