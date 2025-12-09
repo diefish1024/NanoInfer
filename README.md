@@ -1,16 +1,16 @@
 # NanoInfer
 
-**NanoInfer** is a lightweight, high-performance LLM inference engine built from scratch. It bridges the gap between **C++ low-level optimization** and **Python high-level flexibility**, designed to run open-source models like Llama.
+**NanoInfer** is a lightweight, high-performance LLM inference engine built from scratch. It designed to run open-source models like Llama.
 
-It features a hybrid backend architecture that dynamically dispatches operators to **OpenAI Triton**, **Native CUDA (cuBLAS)**, or **SIMD optimized CPU** kernels.
+It features a hybrid backend architecture that dynamically dispatches operators to Triton, CUDA, or SIMD optimized CPU kernels.
 
 ## Key Features
 
 - **Hybrid Backend Architecture**:
     - **Triton**: Used for memory-bound operators (RMSNorm, SiLU, RoPE, Softmax).
-    - **CUDA/cuBLAS**: Used for compute-bound operators (GEMM/MatMul).
-    - **CPU Fallback**: Hand-written **SIMD intrinsics** for low-latency CPU inference.
-- **PyTorch-like API**: Implements a familiar `nn.Module` and `functional` API for easy model building andeight loading.
+    - **CUDA/cuBLAS**: Used for compute-bound operators.
+    - **CPU Fallback**: Hand-written SIMD intrinsics for low-latency CPU inference.
+- **PyTorch-like API**: Implements a familiar `nn.Module` and `functional` API for easy model building and loading.
 
 ## Project Structure
 
@@ -90,8 +90,8 @@ print(f"Output Shape: {output.shape}")
     - [x] Operator Dispatcher (Functional API)
     - [x] Llama MLP Block (Linear + SiLU)
 - [ ] **Milestone 2: Sequence & Attention**
-    - [ ] RoPE (Rotary Positional Embeddings) via Triton
-    - [ ] KV Cache Management (Static Allocation)
+    - [ ] Sequence Operator via Triton
+    - [ ] KV Cache Management
     - [ ] CPU SIMD Optimization
 - [ ] **Milestone 3: End-to-End Inference**
     - [ ] Weight Loader (HuggingFace Safetensors)
