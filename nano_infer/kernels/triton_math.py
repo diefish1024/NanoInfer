@@ -12,14 +12,17 @@ def _silu_kernel(
     block_start = pid * BLOCK_SIZE
     offsets = block_start + tl.arange(0, BLOCK_SIZE)
 
-    x_ptr_p = x_ptr.to(tl.pointer_type(tl.float32))
-    out_ptr_p = out_ptr.to(tl.pointer_type(tl.float32))
+    x_ptr = x_ptr.to(tl.int64)
+    out_ptr = out_ptr.to(tl.int64)
+
+    x_ptr = x_ptr.to(tl.pointer_type(tl.float32))
+    out_ptr = out_ptr.to(tl.pointer_type(tl.float32))
     
     mask = offsets < n_elements
-    x = tl.load(x_ptr_p + offsets, mask=mask)
+    x = tl.load(x_ptr + offsets, mask=mask)
     
     output = x * tl.sigmoid(x)
-    tl.store(out_ptr_p + offsets, output, mask=mask)
+    tl.store(out_ptr + offsets, output, mask=mask)
 
 def silu(x, out):
     n_elements = x.numel

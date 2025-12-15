@@ -3,22 +3,58 @@ from ..backend import _nano_infer
 
 CppTensor = _nano_infer.Tensor
 Device = _nano_infer.Device
+DType = _nano_infer.DType
 
 class Tensor:
-    def __init__(self, data, device=None):
+    def __init__(self, data, dtype=None, device=None):
         if isinstance(data, CppTensor):
             self.data = data
         else:
             if not isinstance(data, np.ndarray):
-                data = np.array(data, dtype=np.float32)
-            
-            self.data = CppTensor(data.shape, Device.CPU)
-            
-            dst = np.array(self.data, copy=False)
-            dst[:] = data
+                data = np.array(data)
 
-            if device != 'cpu': 
-                self.data.to_cuda()
+            if dtype is None:
+                if np.issubdtype(data.dtype, np.integer):
+                    data = data.astype(np.int32)
+                elif np.issubdtype(data.dtype, np.floating):
+                    data = data.astype(np.float32)
+                else:
+                    data = data.astype(np.float32)
+            else:
+                data = data.astype(dtype)
+
+            if device is None:
+                target_device = Device.CPU
+            elif isinstance(device, str):
+                if device.lower() == 'cuda':
+                    target_device = Device.CUDA
+                elif device.lower() == 'cpu':
+                    target_device = Device.CPU
+                else:
+                    raise ValueError(f"Unknown device string: {device}")
+            else:
+                target_device = device
+            
+            self.data = CppTensor(data, target_device)
+
+    @staticmethod
+    def empty(shape, dtype=DType.Float32, device=None):
+        target_device = Device.CPU
+        if device is None:
+            target_device = Device.CPU
+        elif isinstance(device, str):
+            target_device = Device.CUDA if device.lower() == 'cuda' else Device.CPU
+        elif isinstance(device, Device):
+            target_device = device
+
+        target_dtype = dtype
+        if target_dtype == np.float32:
+            target_dtype = DType.Float32
+        elif target_dtype == np.int32:
+            target_dtype = DType.Int32
+
+        cpp_tensor = CppTensor(list(shape), target_dtype, target_device)
+        return Tensor(cpp_tensor)
     
     def numpy(self):
         if self.data.device == Device.CUDA:
@@ -26,6 +62,12 @@ class Tensor:
             return np.array(cpu_tensor, copy=True)
         else:
             return np.array(self.data, copy=True)
+        
+    @property
+    def dtype(self):
+        if self.data.dtype == DType.Int32:
+            return np.int32
+        return np.float32
     
     @property
     def strides(self):
@@ -43,10 +85,12 @@ class Tensor:
     def __cuda_array_interface__(self):
         if self.data.device != Device.CUDA:
             raise AttributeError("Tensor is on CPU, no CUDA interface available.")
-        
+        typestr = "<f4"
+        if self.data.dtype == DType.Int32:
+            typestr = "<i4"
         return {
             "shape": self.shape,
-            "typestr": "<f4", # float32, little-endian
+            "typestr": typestr,
             "data": (self.data_ptr, False), # (ptr, read_only_flag)
             "version": 3,
             "strides": None
@@ -77,7 +121,8 @@ class Tensor:
 
     def __repr__(self):
         if self.data.device == Device.CUDA:
-             return f"Tensor({self.shape}, device='cuda')"
+             d_str = "int32" if self.data.dtype == DType.Int32 else "float32"
+             return f"Tensor({self.shape}, device='cuda', dtype={d_str})"
         return f"Tensor(data={self.numpy()}, device='cpu')"
     
     def __add__(self, other):

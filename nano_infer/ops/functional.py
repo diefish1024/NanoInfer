@@ -23,17 +23,16 @@ def rms_norm(x: Tensor, weight: Tensor, eps: float = 1e-6) -> Tensor:
     if x.device != Device.CUDA:
         raise NotImplementedError("CPU implementation (AVX) is coming soon in Milestone 2.")
 
-    # TODO: implement empty_like in C++ Tensor
-    out = Tensor(np.empty(x.shape, dtype=np.float32), device=Device.CUDA)
+    out = Tensor.empty(x.shape, x.dtype, device=x.device)
 
     triton_norm.rms_norm(x, weight, out, eps)
 
     return out
 
-def silu(x: Tensor) -> Tensor:    
-    out = Tensor(np.empty(x.shape, dtype=np.float32), device=Device.CUDA)
+def silu(x: Tensor) -> Tensor:
+    out = Tensor.empty(x.shape, x.dtype, device=x.device)
     if x.device == Device.CPU:
-        CppTensor.silu(x, out);
+        CppTensor.silu(x.data, out.data);
     elif x.device == Device.CUDA:
         triton_math.silu(x, out)
     else:
@@ -50,10 +49,9 @@ def linear(input: Tensor, weight: Tensor, bias: Optional[Tensor]=None):
     return output
 
 def embedding(input: Tensor, weight: Tensor) -> Tensor:
-    batch_size, seq_len = input.shape
     vocab_size, hidden_dim = weight.shape
     out_shape = list(input.shape) + [hidden_dim]
-    out = Tensor(np.empty(out_shape, dtype=np.float32), device=input.device)
+    out = Tensor.empty(out_shape, weight.dtype, device=input.device)
 
     if input.device == Device.CUDA:
         triton_embedding.embedding(input, weight, out)
@@ -65,7 +63,7 @@ def embedding(input: Tensor, weight: Tensor) -> Tensor:
 def softmax(x: Tensor, dim: int = -1) -> Tensor:
     if dim != -1 and dim != len(x.shape) - 1:
         raise NotImplementedError("Softmax currently only supports dim=-1")
-    out = Tensor(np.empty(x.shape, dtype=np.float32), device=x.device)
+    out = Tensor.empty(x.shape, x.dtype, device=x.device)
     
     if x.device == Device.CUDA:
         triton_softmax.softmax(x, out)

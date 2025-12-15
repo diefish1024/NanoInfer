@@ -16,20 +16,24 @@
         } \
     } while (0)
 
-void cuda_malloc(float** ptr, size_t size) {
-    CUDA_CHECK(cudaMalloc((void**)ptr, size * sizeof(float)));
+void cuda_malloc(void** ptr, size_t num_bytes) {
+    CUDA_CHECK(cudaMalloc((void**)ptr, num_bytes));
 }
 
-void cuda_free(float* ptr) {
+void cuda_free(void* ptr) {
     if (ptr) CUDA_CHECK(cudaFree(ptr));
 }
 
-void cuda_memcpy_h2d(float* d_ptr, const float* h_ptr, size_t size) {
-    CUDA_CHECK(cudaMemcpy(d_ptr, h_ptr, size * sizeof(float), cudaMemcpyHostToDevice));
+void cuda_memcpy_h2d(void* d_ptr, const void* h_ptr, size_t num_bytes) {
+    CUDA_CHECK(cudaMemcpy(d_ptr, h_ptr, num_bytes, cudaMemcpyHostToDevice));
 }
 
-void cuda_memcpy_d2h(float* h_ptr, const float* d_ptr, size_t size) {
-    CUDA_CHECK(cudaMemcpy(h_ptr, d_ptr, size * sizeof(float), cudaMemcpyDeviceToHost));
+void cuda_memcpy_d2h(void* h_ptr, const void* d_ptr, size_t num_bytes) {
+    CUDA_CHECK(cudaMemcpy(h_ptr, d_ptr, num_bytes, cudaMemcpyDeviceToHost));
+}
+
+void cuda_memset(void* d_ptr, int value, size_t num_bytes) {
+    CUDA_CHECK(cudaMemset(d_ptr, value, num_bytes));
 }
 
 __global__ void add_kernel_forward(const float* a, const float* b, float* c, size_t n) {
@@ -122,5 +126,18 @@ void cublas_sgemm_wrapper(
 
     if (status != CUBLAS_STATUS_SUCCESS) {
         throw std::runtime_error("cuBLAS SGEMM failed with error code: " + std::to_string(status));
+    }
+}
+
+void debug_cuda_sync(const char* msg) {
+    cudaDeviceSynchronize();
+    
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        fprintf(stderr, "❌ CRASH DETECTED at [%s]!\n", msg);
+        fprintf(stderr, "👉 Error: %s\n", cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
+    } else {
+        printf("✅ [%s] Clean.\n", msg);
     }
 }

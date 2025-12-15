@@ -15,35 +15,36 @@ std::vector<int> Tensor::compute_strides(const std::vector<int>& shape) {
     return strides;
 }
 
-Tensor::Tensor(std::vector<int> shape, Device device)
-    : shape(std::move(shape)), device(device) {
+Tensor::Tensor(std::vector<int> shape, DType dtype, Device device)
+    : shape(std::move(shape)), dtype(dtype), device(device) {
     
     this->size = std::accumulate(this->shape.begin(), this->shape.end(), 
                                  1UL, std::multiplies<size_t>());
     
     this->strides = compute_strides(this->shape);
+    size_t bytes = this->nbytes();
 
     if (this->device == Device::CPU) {
-        this->data = new float[this->size];
-        std::fill_n(this->data, this->size, 0.0f);
+        this->data = new char[bytes];
+        std::memset(this->data, 0, bytes);
     } else {
-        cuda_malloc(&this->data, this->size);
+        cuda_malloc(&this->data, bytes);
+        cuda_memset(this->data, 0, bytes);
     }
 }
 
 Tensor::~Tensor() {
     if (!data) return;
-
     if (device == Device::CPU) {
-        delete[] data;
+        delete[] static_cast<char*>(data);
     } else {
         cuda_free(data);
     }
 }
 
 Tensor::Tensor(Tensor&& other) noexcept 
-    : data(other.data), shape(std::move(other.shape)), 
-      strides(std::move(other.strides)), size(other.size), device(other.device) {
+    : data(other.data), shape(std::move(other.shape)), strides(std::move(other.strides)), 
+      size(other.size), device(other.device), dtype(other.dtype) {
     other.data = nullptr;
     other.size = 0;
 }
@@ -51,7 +52,7 @@ Tensor::Tensor(Tensor&& other) noexcept
 Tensor& Tensor::operator=(Tensor&& other) noexcept {
     if (this != &other) {
         if (data) {
-            if (device == Device::CPU) delete[] data;
+            if (device == Device::CPU) delete[] static_cast<char*>(data);
             else cuda_free(data);
         }
         data = other.data;
@@ -59,6 +60,7 @@ Tensor& Tensor::operator=(Tensor&& other) noexcept {
         strides = std::move(other.strides);
         size = other.size;
         device = other.device;
+        dtype = other.dtype;
         
         other.data = nullptr;
         other.size = 0;
@@ -69,12 +71,14 @@ Tensor& Tensor::operator=(Tensor&& other) noexcept {
 Tensor& Tensor::to_cuda() {
     if (device == Device::CUDA) return *this;
 
-    float* gpu_ptr = nullptr;
-    cuda_malloc(&gpu_ptr, size);
+    void* gpu_ptr = nullptr;
+    size_t bytes = nbytes();
+
+    cuda_malloc(&gpu_ptr, bytes);
     
-    cuda_memcpy_h2d(gpu_ptr, data, size);
+    cuda_memcpy_h2d(gpu_ptr, data, bytes);
     
-    delete[] data;
+    delete[] static_cast<char*>(data);
     data = gpu_ptr;
     device = Device::CUDA;
 
@@ -84,10 +88,11 @@ Tensor& Tensor::to_cuda() {
 Tensor& Tensor::to_cpu() {
     if (device == Device::CPU) return *this;
 
-    float* cpu_ptr = new float[size];
+    size_t bytes = nbytes();
+    void* cpu_ptr = new char[bytes];
     
-    cuda_memcpy_d2h(cpu_ptr, data, size);
-    
+    cuda_memcpy_d2h(cpu_ptr, data, bytes);
+
     cuda_free(data);
     data = cpu_ptr;
     device = Device::CPU;
@@ -96,41 +101,45 @@ Tensor& Tensor::to_cpu() {
 }
 
 Tensor* Tensor::add(const Tensor& other) const {
-    if (shape != other.shape) {
-        throw std::runtime_error("Shape mismatch in add operation");
-    }
-    if (device != other.device) {
-        throw std::runtime_error("Device mismatch in add operation: CPU vs CUDA");
-    }
+    if (shape != other.shape) throw std::runtime_error("Shape mismatch in add");
+    if (device != other.device) throw std::runtime_error("Device mismatch");
+    if (dtype != other.dtype) throw std::runtime_error("DType mismatch");
+    if (dtype != DType::Float32) throw std::runtime_error("Add currently only supports Float32");
 
-    Tensor* out = new Tensor(shape, device);
+    Tensor* out = new Tensor(shape, dtype, device);
+
+    float* a_ptr = static_cast<float*>(data);
+    float* b_ptr = static_cast<float*>(other.data);
+    float* out_ptr = static_cast<float*>(out->data);
 
     if (device == Device::CPU) {
         for (size_t i = 0; i < size; ++i) {
-            out->data[i] = data[i] + other.data[i];
+            out_ptr[i] = a_ptr[i] + b_ptr[i];
         }
     } else {
-        launch_add_kernel(data, other.data, out->data, size);
+        launch_add_kernel(a_ptr, b_ptr, out_ptr, size);
     }
     return out;
 }
 
 Tensor* Tensor::mul(const Tensor& other) const {
-    if (shape != other.shape) {
-        throw std::runtime_error("Shape mismatch in mul operation");
-    }
-    if (device != other.device) {
-        throw std::runtime_error("Device mismatch in mul operation");
-    }
+    if (shape != other.shape) throw std::runtime_error("Shape mismatch");
+    if (device != other.device) throw std::runtime_error("Device mismatch");
+    if (dtype != other.dtype) throw std::runtime_error("DType mismatch");
+    if (dtype != DType::Float32) throw std::runtime_error("Mul currently only supports Float32");
 
-    Tensor* out = new Tensor(shape, device);
+    Tensor* out = new Tensor(shape, dtype, device);
+
+    float* a_ptr = static_cast<float*>(data);
+    float* b_ptr = static_cast<float*>(other.data);
+    float* out_ptr = static_cast<float*>(out->data);
 
     if (device == Device::CPU) {
         for (size_t i = 0; i < size; ++i) {
-            out->data[i] = data[i] * other.data[i];
+            out_ptr[i] = a_ptr[i] * b_ptr[i];
         }
     } else {
-        launch_mul_kernel(data, other.data, out->data, size);
+        launch_mul_kernel(a_ptr, b_ptr, out_ptr, size);
     }
     return out;
 }
@@ -138,6 +147,9 @@ Tensor* Tensor::mul(const Tensor& other) const {
 Tensor* Tensor::matmul(const Tensor& other, bool trans_a, bool trans_b) const {
     if (device != Device::CUDA || other.device != Device::CUDA) {
         throw std::runtime_error("MatMul requires both Tensors to be on CUDA.");
+    }
+    if (dtype != DType::Float32 || other.dtype != DType::Float32) {
+        throw std::runtime_error("MatMul only supports Float32");
     }
     
     int K_a;
@@ -174,7 +186,7 @@ Tensor* Tensor::matmul(const Tensor& other, bool trans_a, bool trans_b) const {
         out_shape.back() = N;
     }
     
-    Tensor* out = new Tensor(out_shape, Device::CUDA);
+    Tensor* out = new Tensor(out_shape, DType::Float32, Device::CUDA);
 
     int lda = shape.back();
     int ldb = other.shape.back(); 
@@ -182,9 +194,9 @@ Tensor* Tensor::matmul(const Tensor& other, bool trans_a, bool trans_b) const {
 
     cublas_sgemm_wrapper(
         M, N, K,
-        data, lda,
-        other.data, ldb,
-        out->data, ldc,
+        static_cast<float*>(data), lda,
+        static_cast<float*>(other.data), ldb,
+        static_cast<float*>(out->data), ldc,
         trans_a, trans_b
     );
 
@@ -197,10 +209,23 @@ std::string Tensor::to_string() const {
     for (size_t i = 0; i < shape.size(); ++i) {
         ss << shape[i] << (i < shape.size() - 1 ? ", " : "");
     }
-    ss << "], device=" << (device == Device::CPU ? "CPU" : "CUDA") << ")";
+    ss << "], device=" << (device == Device::CPU ? "CPU" : "CUDA") 
+       << ", dtype=" << (dtype == DType::Float32 ? "Float32" : "Int32") << ")";
     return ss.str();
 }
 
 void Tensor::print() const {
     std::cout << to_string() << std::endl;
+}
+
+size_t Tensor::element_size() const {
+    switch (dtype) {
+        case DType::Float32: return 4;
+        case DType::Int32:   return 4;
+        default: return 4;
+    }
+}
+
+size_t Tensor::nbytes() const {
+    return size * element_size();
 }

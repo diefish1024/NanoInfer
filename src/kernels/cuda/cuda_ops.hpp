@@ -2,11 +2,12 @@
 #include <cstddef>
 #include <cublas_v2.h> // cuBLAS
 
-void cuda_malloc(float** ptr, size_t size);
-void cuda_free(float* ptr);
+void cuda_malloc(void** ptr, size_t num_bytes);
+void cuda_free(void* ptr);
 
-void cuda_memcpy_h2d(float* d_ptr, const float* h_ptr, size_t size); // Host to Device
-void cuda_memcpy_d2h(float* h_ptr, const float* d_ptr, size_t size); // Device to Host
+void cuda_memcpy_h2d(void* d_ptr, const void* h_ptr, size_t num_bytes);  // Host to Device
+void cuda_memcpy_d2h(void* h_ptr, const void* d_ptr, size_t num_bytes);  // Device to Host
+void cuda_memset(void* d_ptr, int value, size_t num_bytes);
 
 void launch_add_kernel(const float* a, const float* b, float* c, size_t n);
 void launch_mul_kernel(const float* a, const float* b, float* c, size_t n);
@@ -20,3 +21,5 @@ void cublas_sgemm_wrapper(
     float* C, int ldc,
     bool trans_a = false, bool trans_b = false
 );
+
+void debug_cuda_sync(const char* msg);

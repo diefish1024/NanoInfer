@@ -7,6 +7,7 @@ def _embedding_kernel(
     w_ptr,
     out_ptr,
     N_IDX,
+    stride_w_row,
     HIDDEN_DIM: tl.constexpr,
     BLOCK_SIZE: tl.constexpr
 ):
@@ -20,7 +21,7 @@ def _embedding_kernel(
 
     idx = tl.load(idx_ptr + pid)
 
-    src_row_st = w_ptr + idx  # assume w is contiguous
+    src_row_st = w_ptr + idx * stride_w_row 
     dst_row_st = out_ptr + pid * HIDDEN_DIM
 
     for off in range(0, HIDDEN_DIM, BLOCK_SIZE):
@@ -41,6 +42,7 @@ def embedding(idx, w, out):
         w.data_ptr,
         out.data_ptr,
         n_idx,
+        w.strides[0],
         HIDDEN_DIM=hidden_dim,
         BLOCK_SIZE=BLOCK_SIZE
     )

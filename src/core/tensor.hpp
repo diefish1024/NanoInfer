@@ -6,16 +6,19 @@
 #include <stdexcept>
 
 enum class Device { CPU, CUDA };
+enum class DType { Float32, Int32 };
 
 class Tensor {
 public:
-    float* data;
+    void* data;
+    DType dtype;
+
     std::vector<int> shape;
     std::vector<int> strides;
     size_t size;
     Device device;
 
-    Tensor(std::vector<int> shape, Device device = Device::CPU);
+    Tensor(std::vector<int> shape, DType dtype = DType::Float32, Device device = Device::CPU);
     ~Tensor();
 
     Tensor(const Tensor&) = delete;
@@ -34,6 +37,9 @@ public:
 
     std::string to_string() const;
     void print() const;
+
+    size_t element_size() const;
+    size_t nbytes() const;
 
 private:
     static std::vector<int> compute_strides(const std::vector<int>& shape);
