@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Optional
 from ..core.tensor import Tensor
-from ..kernels import triton_norm, triton_math, triton_embedding, triton_softmax
+from ..kernels import triton_norm, triton_math, triton_embedding, triton_softmax, triton_rope
 from ..backend import _nano_infer
 
 CppTensor = _nano_infer.Tensor
@@ -71,3 +71,12 @@ def softmax(x: Tensor, dim: int = -1) -> Tensor:
         CppTensor.softmax(x, out)
     
     return out
+
+def rope(q: Tensor, k: Tensor, cos: Tensor, sin: Tensor, start_pos: int = 0) -> tuple[Tensor, Tensor]:
+    # in-place
+    if q.device == Device.CUDA:
+        triton_rope.rope(q, k, cos, sin, start_pos)
+    elif q.device == Device.CPU:
+        CppTensor.rope(q.data, k.data, cos.data, sin.data, start_pos)
+        
+    return q, k
