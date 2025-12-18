@@ -74,3 +74,61 @@ void softmax(const Tensor& x, Tensor& out) {
         }
     }
 }
+
+void rope(
+    Tensor& q,         // [Batch, Seq, Heads, Dim]
+    Tensor& k,         // [Batch, Seq, Heads, Dim]
+    const Tensor& cos, // [Max_Seq, Dim/2]
+    const Tensor& sin, // [Max_Seq, Dim/2]
+    int start_pos
+) {
+    CHECK_FLOAT(q);
+    CHECK_FLOAT(k);
+    CHECK_FLOAT(cos);
+    CHECK_FLOAT(sin);
+
+    int batch = q.shape[0];
+    int seq_len = q.shape[1];
+    int heads = q.shape[2];
+    int dim = q.shape[3];
+    int half_dim = dim / 2;
+
+    float* q_data = static_cast<float*>(q.data);
+    float* k_data = static_cast<float*>(k.data);
+    const float* cos_data = static_cast<const float*>(cos.data);
+    const float* sin_data = static_cast<const float*>(sin.data);
+
+    for (int b = 0; b < batch; ++b) {
+        for (int s = 0; s < seq_len; ++s) {
+            int global_pos = start_pos + s;
+            
+            const float* cos_row = cos_data + global_pos * half_dim;
+            const float* sin_row = sin_data + global_pos * half_dim;
+
+            for (int h = 0; h < heads; ++h) {
+                // Offset = b*S*H*D + s*H*D + h*D
+                int offset = (b * seq_len * heads * dim) + (s * heads * dim) + (h * dim);
+                
+                float* q_head = q_data + offset;
+                // shape of K may be different to Q, assume they are same now
+                float* k_head = k_data + offset;
+
+                // Rotate Half
+                for (int i = 0; i < half_dim; ++i) {
+                    float c = cos_row[i];
+                    float s_val = sin_row[i];
+
+                    float q1 = q_head[i];
+                    float q2 = q_head[i + half_dim];
+                    q_head[i]            = q1 * c - q2 * s_val;
+                    q_head[i + half_dim] = q2 * c + q1 * s_val;
+
+                    float k1 = k_head[i];
+                    float k2 = k_head[i + half_dim];
+                    k_head[i]            = k1 * c - k2 * s_val;
+                    k_head[i + half_dim] = k2 * c + k1 * s_val;
+                }
+            }
+        }
+    }
+}
