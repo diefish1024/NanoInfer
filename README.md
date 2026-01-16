@@ -11,6 +11,9 @@ It features a hybrid backend architecture that dynamically dispatches operators 
     - **CUDA/cuBLAS**: Used for compute-bound operators.
     - **CPU Fallback**: Hand-written SIMD intrinsics for low-latency CPU inference.
 - **PyTorch-like API**: Implements a familiar `nn.Module` and `functional` API for easy model building and loading.
+- **KV Cache & Attention**:
+    - Static and paged KV cache for Llama-style attention.
+    - Custom Triton kernels for reshape-and-cache, paged attention, and causal masking.
 
 ## Project Structure
 
@@ -82,6 +85,12 @@ print(f"Output Shape: {output.shape}")
 # Output: Tensor(shape=[1, 128, 4096], device=CUDA)
 ```
 
+## Testing & Validation
+
+- Unit tests for core kernels (RMSNorm, RoPE, softmax).
+- Paged attention vs. static cache numerical consistency tests.
+- KV cache correctness checks for both static and paged backends.
+
 ## Roadmap
 
 - [x] **Milestone 1: Infrastructure**
@@ -89,11 +98,12 @@ print(f"Output Shape: {output.shape}")
     - [x] `nn.Module` & Parameter system
     - [x] Operator Dispatcher (Functional API)
     - [x] Llama MLP Block (Linear + SiLU)
-- [ ] **Milestone 2: Sequence & Attention**
-    - [ ] Sequence Operator via Triton
-    - [ ] KV Cache Management
-    - [ ] CPU SIMD Optimization
+- [x] **Milestone 2: Sequence & Attention**
+    - [x] Sequence Operator via Triton (RoPE, RMSNorm)
+    - [x] KV Cache Management (PagedAttention)
+    - [x] High-performance Custom Kernels (ReshapeAndCache, PagedAttention)
 - [ ] **Milestone 3: End-to-End Inference**
     - [ ] Weight Loader (HuggingFace Safetensors)
-    - [ ] FlashAttention-v2 Implementation
+    - [ ] FlashAttention-v2 Implementation (Prefill)
     - [ ] Llama-7b Generation Loop
+
