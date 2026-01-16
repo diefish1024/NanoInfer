@@ -15,9 +15,9 @@ def _embedding_kernel(
     if pid >= N_IDX:
         return
     
-    idx_ptr = idx_ptr.to(tl.pointer_type(tl.int32))
-    w_ptr = w_ptr.to(tl.pointer_type(tl.float32))
-    out_ptr = out_ptr.to(tl.pointer_type(tl.float32))
+    idx_ptr = idx_ptr.to(tl.int64).to(tl.pointer_type(tl.int32))
+    w_ptr = w_ptr.to(tl.int64).to(tl.pointer_type(tl.float32))
+    out_ptr = out_ptr.to(tl.int64).to(tl.pointer_type(tl.float32))
 
     idx = tl.load(idx_ptr + pid)
 

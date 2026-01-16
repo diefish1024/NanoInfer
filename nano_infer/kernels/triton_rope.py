@@ -5,13 +5,9 @@ import triton.language as tl
 def _rope_kernel(
     q_ptr, k_ptr,
     cos_ptr, sin_ptr,
-    
-    # Strides
     stride_q_batch, stride_q_seq, stride_q_head, stride_q_dim,
     stride_k_batch, stride_k_seq, stride_k_head, stride_k_dim,
     stride_cos_seq, stride_cos_dim,
-    
-    # Params
     start_pos,
     SEQ_LEN,
     HEAD_DIM: tl.constexpr, 
@@ -33,15 +29,14 @@ def _rope_kernel(
     off_half = tl.arange(0, BLOCK_SIZE)
     mask = off_half < HALF_DIM
 
-    q_ptr = q_ptr.to(tl.pointer_type(tl.float32))
-    k_ptr = k_ptr.to(tl.pointer_type(tl.float32))
-    cos_ptr = cos_ptr.to(tl.pointer_type(tl.float32))
-    sin_ptr = sin_ptr.to(tl.pointer_type(tl.float32))
+    q_ptr = q_ptr.to(tl.int64).to(tl.pointer_type(tl.float32))
+    k_ptr = k_ptr.to(tl.int64).to(tl.pointer_type(tl.float32))
+    cos_ptr = cos_ptr.to(tl.int64).to(tl.pointer_type(tl.float32))
+    sin_ptr = sin_ptr.to(tl.int64).to(tl.pointer_type(tl.float32))
     
     c = tl.load(cos_ptr + rope_offset + off_half, mask=mask, other=0.0)
     s = tl.load(sin_ptr + rope_offset + off_half, mask=mask, other=0.0)
     
-    # assume stride Q = 1 (to be changed)
     q1_ptr = q_ptr + q_offset + off_half
     q2_ptr = q_ptr + q_offset + HALF_DIM + off_half
     
@@ -54,8 +49,6 @@ def _rope_kernel(
     k1 = tl.load(k1_ptr, mask=mask, other=0.0)
     k2 = tl.load(k2_ptr, mask=mask, other=0.0)
     
-    # out1 = x1 * cos - x2 * sin
-    # out2 = x2 * cos + x1 * sin
     q1_out = q1 * c - q2 * s
     q2_out = q2 * c + q1 * s
     
@@ -69,7 +62,6 @@ def _rope_kernel(
     tl.store(k2_ptr, k2_out, mask=mask)
 
 def rope(q, k, cos, sin, start_pos=0):
-    # q, k: [Batch, Seq, Heads, Dim]
     BATCH, SEQ, HEADS, DIM = q.shape
     HALF_DIM = DIM // 2
     
@@ -80,13 +72,9 @@ def rope(q, k, cos, sin, start_pos=0):
     _rope_kernel[grid](
         q.data_ptr, k.data_ptr,
         cos.data_ptr, sin.data_ptr,
-        
-        # Strides
         q.strides[0], q.strides[1], q.strides[2], q.strides[3],
         k.strides[0], k.strides[1], k.strides[2], k.strides[3],
         cos.strides[0], cos.strides[1],
-        
-        # Scalar Params
         start_pos,
         SEQ,
         DIM,

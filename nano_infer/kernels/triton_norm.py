@@ -13,9 +13,9 @@ def _rms_norm_kernel(
 ):
     row_idx = tl.program_id(0)
 
-    x_ptr = x_ptr.to(tl.pointer_type(tl.float32))
-    w_ptr = w_ptr.to(tl.pointer_type(tl.float32))
-    out_ptr = out_ptr.to(tl.pointer_type(tl.float32))
+    x_ptr = x_ptr.to(tl.int64).to(tl.pointer_type(tl.float32))
+    w_ptr = w_ptr.to(tl.int64).to(tl.pointer_type(tl.float32))
+    out_ptr = out_ptr.to(tl.int64).to(tl.pointer_type(tl.float32))
 
     row_start_ptr = x_ptr + row_idx * stride_x
 
