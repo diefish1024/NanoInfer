@@ -10,8 +10,8 @@ def _softmax_kernel(
 ):
     row_idx = tl.program_id(0)
     
-    input_ptr = input_ptr.to(tl.pointer_type(tl.float32))
-    output_ptr = output_ptr.to(tl.pointer_type(tl.float32))
+    input_ptr = input_ptr.to(tl.int64).to(tl.pointer_type(tl.float32))
+    output_ptr = output_ptr.to(tl.int64).to(tl.pointer_type(tl.float32))
     
     row_start_ptr = input_ptr + row_idx * stride_input_row
     out_row_start_ptr = output_ptr + row_idx * stride_output_row

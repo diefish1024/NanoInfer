@@ -66,3 +66,37 @@ class Module:
             module.to(device)
             
         return self
+
+class ModuleList(Module):
+    def __init__(self, modules=None):
+        super().__init__()
+        if modules is not None:
+            self.extend(modules)
+
+    def __getitem__(self, idx):
+        # Allow indexing like a normal list
+        return list(self._modules.values())[idx]
+
+    def __len__(self):
+        return len(self._modules)
+
+    def __iter__(self):
+        return iter(self._modules.values())
+
+    def append(self, module):
+        # Use the index as the module name for registration
+        self.add_module(str(len(self)), module)
+        return self
+
+    def extend(self, modules):
+        for module in modules:
+            self.append(module)
+        return self
+
+    def add_module(self, name, module):
+        # Manually register into the _modules OrderedDict
+        self._modules[name] = module
+
+    def forward(self, *args, **kwargs):
+        # ModuleList itself doesn't have a forward pass logic
+        raise NotImplementedError
