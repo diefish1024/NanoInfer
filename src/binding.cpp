@@ -94,8 +94,11 @@ PYBIND11_MODULE(_nano_infer, m) {
         .def("to_cuda", &Tensor::to_cuda, py::return_value_policy::reference)
         .def("to_cpu", &Tensor::to_cpu, py::return_value_policy::reference)
 
+        .def("reshape", &Tensor::reshape)
+
         .def("add", &Tensor::add, py::return_value_policy::take_ownership)
         .def("mul", &Tensor::mul, py::return_value_policy::take_ownership)
+        .def("mul_scalar", &Tensor::mul_scalar, py::arg("alpha"), py::return_value_policy::take_ownership)
         .def("matmul", &Tensor::matmul, 
             py::arg("other"), 
             py::arg("trans_a") = false, 
@@ -108,4 +111,5 @@ PYBIND11_MODULE(_nano_infer, m) {
         m.def("embedding", &embedding, "Embedding CPU Naive Implementation");
         m.def("softmax", &softmax, "Softmax CPU Naive Implementation");
         m.def("rope", &rope, "RoPE CPU Naive Implementation (In-place)");
+        m.def("kv_cache_update", &kv_cache_update, "KV Cache Niave Implementation");
 }

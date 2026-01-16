@@ -68,6 +68,22 @@ void launch_mul_kernel(const float* a, const float* b, float* c, size_t n) {
     CUDA_CHECK(cudaGetLastError());
 }
 
+__global__ void scale_kernel_forward(const float* x, float* y, float alpha, size_t n) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {
+        y[idx] = x[idx] * alpha;
+    }
+}
+
+void launch_scale_kernel(const float* x, float* y, float alpha, size_t n) {
+    const int threads_per_block = 256;
+    const int blocks_per_grid = (n + threads_per_block - 1) / threads_per_block;
+
+    scale_kernel_forward<<<blocks_per_grid, threads_per_block>>>(x, y, alpha, n);
+
+    CUDA_CHECK(cudaGetLastError());
+}
+
 static cublasHandle_t cublas_handle = nullptr;
 
 #define CUBLAS_CHECK(call) \

@@ -119,6 +119,29 @@ class Tensor:
     def shape(self):
         return self.data.shape
 
+    def view(self, *shape):
+        if len(shape) == 1 and isinstance(shape[0], (list, tuple)):
+            new_shape = list(shape[0])
+        else:
+            new_shape = list(shape)
+
+        if -1 in new_shape:
+            num_elements = self.numel
+            known_elements = 1
+            minus_one_idx = -1
+            for i, dim in enumerate(new_shape):
+                if dim == -1:
+                    minus_one_idx = i
+                else:
+                    known_elements *= dim
+            new_shape[minus_one_idx] = num_elements // known_elements
+
+        self.data.reshape(new_shape)
+        return self
+
+    def contiguous(self):
+        return self
+
     def __repr__(self):
         if self.data.device == Device.CUDA:
              d_str = "int32" if self.data.dtype == DType.Int32 else "float32"
@@ -132,8 +155,20 @@ class Tensor:
     
     def __mul__(self, other):
         from ..ops import functional as F
+        if isinstance(other, (int, float)):
+            out_cpp = self.data.mul_scalar(float(other))
+            return Tensor(out_cpp, device=self.device)
         other = other if isinstance(other, Tensor) else Tensor(other)
         return F.mul(self, other)
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
+    def __truediv__(self, other):
+        if isinstance(other, (int, float)):
+            out_cpp = self.data.mul_scalar(1.0 / float(other))
+            return Tensor(out_cpp, device=self.device)
+        raise TypeError(f"Unsupported operand type(s) for /: 'Tensor' and '{type(other)}")
 
     def __matmul__(self, other):
         from ..ops import functional as F
@@ -150,3 +185,11 @@ class Tensor:
         from ..ops import functional as F
         other = other if isinstance(other, Tensor) else Tensor(other)
         return  F.matmul(self, other, trans_a, trans_b)
+
+    def slice(self, dim, start, end):
+        from ..ops import functional as F
+        return F.slice(self, dim, start, end)
+
+    def transpose(self, dim0, dim1):
+        from ..ops import functional as F
+        return F.transpose(self, dim0, dim1)

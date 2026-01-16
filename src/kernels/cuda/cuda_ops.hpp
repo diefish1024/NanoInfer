@@ -11,6 +11,7 @@ void cuda_memset(void* d_ptr, int value, size_t num_bytes);
 
 void launch_add_kernel(const float* a, const float* b, float* c, size_t n);
 void launch_mul_kernel(const float* a, const float* b, float* c, size_t n);
+void launch_scale_kernel(const float* x, float* y, float alpha, size_t n);
 
 void cublas_init();
 void cublas_shutdown();

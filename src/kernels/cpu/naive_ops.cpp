@@ -132,3 +132,49 @@ void rope(
         }
     }
 }
+
+void kv_cache_update(
+    Tensor& k_cache,    // [Batch, Heads, Max_Seq, Dim]
+    Tensor& v_cache,    // [Batch, Heads, Max_Seq, Dim]
+    const Tensor& k_src, // [Batch, Seq_New, Heads, Dim]
+    const Tensor& v_src, // [Batch, Seq_New, Heads, Dim]
+    int start_pos
+) {
+    CHECK_FLOAT(k_cache);
+    CHECK_FLOAT(v_cache);
+    CHECK_FLOAT(k_src);
+    CHECK_FLOAT(v_src);
+
+    int batch = k_cache.shape[0];
+    int heads = k_cache.shape[1];
+    int max_seq = k_cache.shape[2];
+    int dim = k_cache.shape[3];
+    int seq_new = k_src.shape[1];
+
+    float* kc_ptr = static_cast<float*>(k_cache.data);
+    float* vc_ptr = static_cast<float*>(v_cache.data);
+    const float* ks_ptr = static_cast<const float*>(k_src.data);
+    const float* vs_ptr = static_cast<const float*>(v_src.data);
+
+    for (int b = 0; b < batch; ++b) {
+        for (int s = 0; s < seq_new; ++s) {
+            int global_pos = start_pos + s;
+            
+            if (global_pos >= max_seq) continue;
+
+            for (int h = 0; h < heads; ++h) {
+                // Src Shape: [B, S, H, D]
+                // offset = b*(S*H*D) + s*(H*D) + h*D
+                int src_offset = (b * seq_new * heads * dim) + (s * heads * dim) + (h * dim);
+
+                // Cache Shape: [B, H, Max_S, D]
+                // offset = b*(H*MaxS*D) + h*(MaxS*D) + global_pos*D
+                int dst_offset = (b * heads * max_seq * dim) + (h * max_seq * dim) + (global_pos * dim);
+
+                // size = dim * element_size
+                std::memcpy(kc_ptr + dst_offset, ks_ptr + src_offset, dim * k_cache.element_size());
+                std::memcpy(vc_ptr + dst_offset, vs_ptr + src_offset, dim * v_cache.element_size());
+            }
+        }
+    }
+}

@@ -30,8 +30,12 @@ public:
     Tensor& to_cuda();
     Tensor& to_cpu();
 
+    bool is_contiguous() const;
+    void reshape(const std::vector<int>& new_shape);
+
     Tensor* add(const Tensor& other) const;
     Tensor* mul(const Tensor& other) const;
+    Tensor* mul_scalar(float alpha) const;
 
     Tensor* matmul(const Tensor& other, bool trans_a = false, bool trans_b = false) const;
 
