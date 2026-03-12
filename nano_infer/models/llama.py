@@ -12,6 +12,7 @@ class LlamaConfig:
         intermediate_size=11008,
         n_layers=32,
         n_heads=32,
+        n_kv_heads=None,
         vocab_size=32000,
         rms_norm_eps=1e-6,
         max_position_embeddings=2048,
@@ -21,6 +22,7 @@ class LlamaConfig:
         self.intermediate_size = intermediate_size
         self.n_layers = n_layers
         self.n_heads = n_heads
+        self.n_kv_heads = n_heads if n_kv_heads is None else n_kv_heads
         self.vocab_size = vocab_size
         self.rms_norm_eps = rms_norm_eps
         self.max_position_embeddings = max_position_embeddings
@@ -56,20 +58,36 @@ class LlamaAttention(nn.Module):
         super().__init__()
         self.layer_idx = layer_idx
         self.n_heads = args.n_heads
+        self.n_kv_heads = getattr(args, "n_kv_heads", args.n_heads)
         self.head_dim = args.hidden_size // args.n_heads
-        
+        kv_dim = self.n_kv_heads * self.head_dim
+
         self.q_proj = nn.Linear(args.hidden_size, args.hidden_size, bias=False)
-        self.k_proj = nn.Linear(args.hidden_size, args.hidden_size, bias=False)
-        self.v_proj = nn.Linear(args.hidden_size, args.hidden_size, bias=False)
+        self.k_proj = nn.Linear(args.hidden_size, kv_dim, bias=False)
+        self.v_proj = nn.Linear(args.hidden_size, kv_dim, bias=False)
         self.o_proj = nn.Linear(args.hidden_size, args.hidden_size, bias=False)
         self.rotary_emb = LlamaRotaryEmbedding(self.head_dim, args.max_position_embeddings)
+
+    def _repeat_kv(self, x: Tensor):
+        if self.n_kv_heads == self.n_heads:
+            return x
+        if self.n_heads % self.n_kv_heads != 0:
+            raise ValueError("n_heads must be divisible by n_kv_heads")
+        x = x.to_cpu()
+        x_np = x.numpy()
+        x_np = np.repeat(x_np, self.n_heads // self.n_kv_heads, axis=2)
+        return Tensor(x_np, device="cuda")
 
     def forward(self, x: Tensor, cache_engine: CacheEngine = None):
         B, Seq, _ = x.shape
         xq = self.q_proj(x).view(B, Seq, self.n_heads, self.head_dim)
-        xk = self.k_proj(x).view(B, Seq, self.n_heads, self.head_dim)
-        xv = self.v_proj(x).view(B, Seq, self.n_heads, self.head_dim)
-        
+        xk = self.k_proj(x).view(B, Seq, self.n_kv_heads, self.head_dim)
+        xv = self.v_proj(x).view(B, Seq, self.n_kv_heads, self.head_dim)
+
+        if self.n_kv_heads != self.n_heads:
+            xk = self._repeat_kv(xk)
+            xv = self._repeat_kv(xv)
+
         cos, sin = self.rotary_emb(Seq)
         start_pos = cache_engine.current_pos if cache_engine else 0
         F.rope(xq, xk, cos, sin, start_pos)
@@ -140,3 +158,14 @@ class LlamaModel(nn.Module):
         if cache_engine:
             cache_engine.advance(input_ids.shape[1])
         return self.norm(h)
+
+class LlamaForCausalLM(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        self.model = LlamaModel(args)
+        self.lm_head = nn.Linear(args.hidden_size, args.vocab_size, bias=False)
+
+    def forward(self, input_ids: Tensor, cache_engine: CacheEngine = None):
+        hidden_states = self.model(input_ids, cache_engine)
+        logits = self.lm_head(hidden_states)
+        return logits
