@@ -44,7 +44,7 @@ NanoInfer/
 
 ### Compilation
 
-You can install the package in editable mode (currently not supported):
+You can install the package in editable mode:
 
 ```bash
 # 1. Clone the repository
@@ -59,6 +59,11 @@ mkdir build && cd build
 cmake ..
 make -j
 ```
+
+### Runtime Dependencies
+
+- Core runtime: numpy, triton, safetensors
+- Example/benchmark: transformers (tokenizer), vllm (optional)
 
 ## Usage Example
 
@@ -85,6 +90,33 @@ print(f"Output Shape: {output.shape}")
 # Output: Tensor(shape=[1, 128, 4096], device=CUDA)
 ```
 
+## End-to-End Inference
+
+```bash
+python ./examples/llama_inference.py \
+  --model_path ./models/TinyLlama-1.1B-Chat-v1.0 \
+  --prompt "Hello, my name is" \
+  --max_tokens 64
+```
+
+## Benchmark
+
+```bash
+python ./examples/benchmark_vllm.py \
+  --model_path ./models/TinyLlama-1.1B-Chat-v1.0 \
+  --prompt_len 128 \
+  --batch_size 1 \
+  --max_tokens 256 \
+  --measure_decode_only
+```
+
+The benchmark output includes the following metrics:
+
+- total: End-to-end latency and tokens/s
+- decode: Decoding phase latency and tokens/s (when --measure_decode_only is enabled)
+
+If vLLM is installed, the results for vLLM will also be included; otherwise, it will be skipped automatically.
+
 ## Testing & Validation
 
 - Unit tests for core kernels (RMSNorm, RoPE, softmax).
@@ -106,4 +138,10 @@ print(f"Output Shape: {output.shape}")
     - [ ] Weight Loader (HuggingFace Safetensors)
     - [ ] FlashAttention-v2 Implementation (Prefill)
     - [ ] Llama-7b Generation Loop
+    - [ ] Continuous Batching Scheduler
+- [ ] **Milestone 4: Heterogeneous Computing & Speculative Decoding**
+    - [ ] CPU Kernel Optimization (AVX2/AVX512 for Draft Model)
+    - [ ] Speculative Scheduler (Draft-Verify Loop)
+    - [ ] KV Cache Rewind Support
+    - [ ] Heterogeneous KV Cache Offloading (Host <-> Device Swapping)
 
