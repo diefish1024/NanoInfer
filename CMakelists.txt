@@ -46,3 +46,9 @@ endif()
 set_target_properties(_nano_infer PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/nano_infer/backend)
 
 target_link_libraries(_nano_infer PRIVATE CUDA::cudart CUDA::cublas)
+
+install(
+    TARGETS _nano_infer
+    LIBRARY DESTINATION nano_infer/backend
+    RUNTIME DESTINATION nano_infer/backend
+)
